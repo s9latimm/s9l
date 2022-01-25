@@ -1,0 +1,18 @@
+[MASTER]
+jobs=0
+disable=
+    unused-private-member,
+    attribute-defined-outside-init,
+    missing-module-docstring,
+    missing-class-docstring,
+    missing-function-docstring,
+    too-few-public-methods,
+    too-many-arguments,
+    trailing-comma-tuple,
+    too-many-instance-attributes,
+    cell-var-from-loop,
+
+[REPORTS]
+output-format=text
+reports=yes
+score=no

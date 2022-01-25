@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-20.04
+
+    continue-on-error: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Detect Version
+        id: version
+        shell: bash
+        run: |
+          echo "::set-output name=version::$(cat VERSION)"
+
+      - name: Release
+        uses: marvinpinto/action-automatic-releases@latest
+        with:
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          title: |
+            [S9L] v${{ steps.version.outputs.version }}
+          automatic_release_tag: v${{ steps.version.outputs.version }}
+          prerelease: false
