@@ -31,10 +31,9 @@
 
 # -*- coding: utf-8 -*-
 
-import logging
 import pathlib
 
-DEBUG: bool = True
+DEBUG: bool = False
 
 MODULE: str = f'{pathlib.Path(__file__).parent.absolute()}'
 DATABASE: str = f'{MODULE}/../resources/sqlite.db'

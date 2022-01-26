@@ -33,6 +33,7 @@
 
 import logging
 
-logging.basicConfig(level=logging.DEBUG,
-                    format='[%(levelname)s][%(asctime)s] %(name)s: %(message)s',
-                    datefmt='%Y-%m-%d][%H:%M:%S')
+from s9l import color, config
+
+logging.basicConfig(level=logging.DEBUG if config.DEBUG else logging.ERROR,
+                    handlers=[color.ANSI_LOGGER])

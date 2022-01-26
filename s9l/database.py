@@ -35,11 +35,12 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+import threading
 from typing import Any, Callable, Dict, List, Optional
 
-import config
+from s9l import config
 
-LOGGER: logging.Logger = logging.getLogger(__name__)
+LOGGER: logging.Logger = logging.getLogger("s9l.database")
 
 
 class Database:
@@ -70,6 +71,7 @@ class Database:
             self.__uri = uri
             self.__connection = sqlite3.connect(f'file://{self.__uri}?mode=rw',
                                                 uri=True)
+            self.__lock = threading.Lock()
             self.__tables = {
                 identifier: Database._Table(self, identifier, columns)
                 for identifier, columns in [
@@ -90,13 +92,13 @@ class Database:
         def __getitem__(self, identifier: str) -> Optional[Database._Table]:
             if identifier in self.__tables.keys():
                 return self.__tables[identifier]
-            LOGGER.error('missing table \'%s\'', identifier)
+            LOGGER.warning('missing table \'%s\'', identifier)
             return None
 
         def __setitem__(self, identifier: str,
                         columns: List[Database.Column]) -> None:
             if identifier in self.__tables.keys():
-                LOGGER.info('replace table \'%s\'', identifier)
+                LOGGER.warning('replace table \'%s\'', identifier)
                 self.drop(self.__tables[identifier])
             self.__tables[identifier] = Database._Table(self, identifier,
                                                         columns).create()
@@ -112,13 +114,15 @@ class Database:
         def execute(self,
                     sql: str,
                     post: Callable[[List[str]], Any] = lambda i: i) -> Any:
-            LOGGER.debug('execute \'%s\'', sql)
-            return post(list(self.__connection.execute(sql)))
+            with self.__lock:
+                LOGGER.info('execute \'%s\'', sql)
+                return post(list(self.__connection.execute(sql)))
 
         def commit(self, sql: str) -> None:
-            LOGGER.debug('execute \'%s\'', sql)
-            self.__connection.execute(sql)
-            self.__connection.commit()
+            with self.__lock:
+                LOGGER.info('execute \'%s\'', sql)
+                self.__connection.execute(sql)
+                self.__connection.commit()
 
     class _Table:
 
@@ -154,16 +158,16 @@ class Database:
                     for column in self.__columns
                     if column.identifier in values.keys()
             ]))):
-                LOGGER.error('duplicate entry %s', values)
+                LOGGER.warning('duplicate entry %s', values)
                 return
 
             for column in values.keys() - {
                     column.identifier for column in self.__columns
             }:
-                LOGGER.error('missing column \'%s\'', column)
+                LOGGER.warning('missing column \'%s\'', column)
             for column in {column.identifier for column in self.__columns
                           } - values.keys():
-                LOGGER.error('missing value for column \'%s\'', column)
+                LOGGER.warning('missing value for column \'%s\'', column)
 
             csv = ', '.join([
                 f'\'{values[column.identifier]}\''
@@ -268,4 +272,6 @@ if __name__ == '__main__':
     db = Database(config.DATABASE)
     db['test'] = [db.Integer('id'), db.String('content')]
     db['test'].insert({'id': 1, 'content': "42"})
-    LOGGER.info(db['test'].select()[0].content)
+    db['test'].insert({'id': 1, 'content': "42"})
+
+    print(db['test'].select()[0].content)
