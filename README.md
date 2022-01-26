@@ -10,6 +10,8 @@
 ╚══════╝  ╚════╝  ╚══════╝
 </pre>
 
+[![Build Status](https://github.com/s9latimm/s9l/workflows/Build/badge.svg?branch=master)](https://github.com/s9latimm/s9l/actions?query=branch%3Amaster)
+
 - [GitHub](https://github.com/s9latimm/s9l)
 
 > Copyright (c) 2022 [Lauritz Timm](https://github.com/s9latimm)

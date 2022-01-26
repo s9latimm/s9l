@@ -1,0 +1,46 @@
+name: Build
+
+on:
+  push:
+    branches: [ master ]
+
+jobs:
+  release:
+    name: Release
+    runs-on: ubuntu-20.04
+
+    continue-on-error: false
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 0
+          submodules: recursive
+
+      - name: Install General Dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get -y install --no-install-recommends python3-dev
+
+      - name: Install Python Dependencies
+        shell: bash
+        run: |
+          pip3 install wheel
+          pip3 install pylint yapf
+          pip3 install -r requirements.txt
+
+      - name: Install Module
+        shell: bash
+        run: |
+          pip3 install .
+
+      - name: Run YAPF
+        shell: bash
+        run: |
+          yapf --style=google --diff --recursive s9l
+
+      - name: Run Pylint
+        shell: bash
+        run: |
+          pylint s9l

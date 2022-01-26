@@ -39,10 +39,10 @@ from setuptools import find_packages, setup
 with open('VERSION', 'r') as file:
     __version__: str = file.read().strip()
 
-with open("README.md", "r") as file:
+with open('README.md', 'r') as file:
     README: str = file.read()
 
-with open('requirements.txt') as file:
+with open('requirements.txt', 'r') as file:
     REQUIREMENTS: List[str] = [
         requirement.strip() for requirement in file.readlines()
     ]
@@ -51,7 +51,7 @@ setup(name='s9l',
       version=__version__,
       description='s9l',
       long_description=README,
-      long_description_content_type="text/markdown",
+      long_description_content_type='text/markdown',
       url=f'https://github.com/s9latimm/s9l',
       author='Lauritz Timm <https://github.com/s9latimm>',
       author_email='s9latimm@stud.uni-saarland.de',
