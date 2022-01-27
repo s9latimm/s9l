@@ -33,17 +33,19 @@
 
 # -*- coding: utf-8 -*-
 
-from typing import List
-from setuptools import find_packages, setup
+import typing
+from setuptools import setup
 
-with open('VERSION', 'r') as file:
+__author__: str = 'Lauritz Timm <https://github.com/s9latimm>'
+
+with open('VERSION', 'r', encoding='utf-8') as file:
     __version__: str = file.read().strip()
 
-with open('README.md', 'r') as file:
+with open('README.md', 'r', encoding='utf-8') as file:
     README: str = file.read()
 
-with open('requirements.txt', 'r') as file:
-    REQUIREMENTS: List[str] = [
+with open('requirements.txt', 'r', encoding='utf-8') as file:
+    REQUIREMENTS: typing.List[str] = [
         requirement.strip() for requirement in file.readlines()
     ]
 
@@ -52,8 +54,8 @@ setup(name='s9l',
       description='s9l',
       long_description=README,
       long_description_content_type='text/markdown',
-      url=f'https://github.com/s9latimm/s9l',
-      author='Lauritz Timm <https://github.com/s9latimm>',
+      url='https://github.com/s9latimm/s9l',
+      author=__author__,
       author_email='s9latimm@stud.uni-saarland.de',
       license='MIT',
       python_requires='>=3.8.0',

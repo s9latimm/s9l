@@ -36,15 +36,15 @@ from __future__ import annotations
 import logging
 import sqlite3
 import threading
-from typing import Any, Callable, Dict, List, Optional
+import typing
 
 from s9l import config
 
-LOGGER: logging.Logger = logging.getLogger("s9l.database")
+_LOGGER: logging.Logger = logging.getLogger('s9l.database')
 
 
 class Database:
-    __instance: Optional[_Database] = None
+    __instance: typing.Optional[_Database] = None
 
     def __init__(self, uri: str = config.DATABASE) -> None:
         if not Database.__instance:
@@ -53,32 +53,33 @@ class Database:
             Database.__instance.__del__()
             Database.__instance = self._Database(uri)
         else:
-            LOGGER.info('reuse instance \'%s\'', uri)
+            _LOGGER.info('reuse instance \'%s\'', uri)
 
-    def __getattr__(self, identifier: str) -> Any:
+    def __getattr__(self, identifier: str) -> typing.Any:
         return getattr(self.__instance, identifier)
 
-    def __getitem__(self, identifier: str) -> Optional[_Table]:
+    def __getitem__(self, identifier: str) -> typing.Optional[_Table]:
         return Database.__instance.__getitem__(identifier)
 
-    def __setitem__(self, identifier: str, columns: List[Column]) -> None:
+    def __setitem__(
+            self, identifier: str,
+            columns: typing.List[typing.Tuple[str, Database.Column]]) -> None:
         return Database.__instance.__setitem__(identifier, columns)
 
     class _Database:
 
         def __init__(self, uri: str) -> None:
-            LOGGER.debug('connect \'%s\'', uri)
-            self.__uri = uri
-            self.__connection = sqlite3.connect(f'file://{self.__uri}?mode=rw',
-                                                uri=True)
-            self.__lock = threading.Lock()
-            self.__tables = {
+            _LOGGER.debug('connect \'%s\'', uri)
+            self.__uri: str = uri
+            self.__connection: sqlite3.Connection = sqlite3.connect(
+                f'file://{self.__uri}?mode=rw', uri=True)
+            self.__lock: threading.Lock = threading.Lock()
+            self.__tables: typing.Dict[str, Database._Table] = {
                 identifier: Database._Table(self, identifier, columns)
                 for identifier, columns in [
                     self.execute(f'PRAGMA table_info({k});',
-                                 post=lambda i:
-                                 (k, [Database.Column(j[1], j[2])
-                                      for j in i]))
+                                 post=lambda i: (k, [(j[1], _DataType(j[2]))
+                                                     for j in i]))
                     for k in self.execute(
                         'SELECT name FROM sqlite_master WHERE type = \'table\';',
                         post=lambda i: i[0] if i else [])
@@ -86,19 +87,22 @@ class Database:
             }
 
         def __del__(self) -> None:
-            LOGGER.debug('close \'%s\'', self.__uri)
+            _LOGGER.debug('close \'%s\'', self.__uri)
             self.__connection.close()
 
-        def __getitem__(self, identifier: str) -> Optional[Database._Table]:
+        def __getitem__(self,
+                        identifier: str) -> typing.Optional[Database._Table]:
             if identifier in self.__tables.keys():
                 return self.__tables[identifier]
-            LOGGER.warning('missing table \'%s\'', identifier)
+            _LOGGER.warning('missing table \'%s\'', identifier)
             return None
 
-        def __setitem__(self, identifier: str,
-                        columns: List[Database.Column]) -> None:
+        def __setitem__(
+                self, identifier: str,
+                columns: typing.List[typing.Tuple[str,
+                                                  Database.Column]]) -> None:
             if identifier in self.__tables.keys():
-                LOGGER.warning('replace table \'%s\'', identifier)
+                _LOGGER.warning('replace table \'%s\'', identifier)
                 self.drop(self.__tables[identifier])
             self.__tables[identifier] = Database._Table(self, identifier,
                                                         columns).create()
@@ -111,67 +115,80 @@ class Database:
             self.commit(f'DROP TABLE IF EXISTS {table.identifier};')
             del self.__tables[table.identifier]
 
-        def execute(self,
-                    sql: str,
-                    post: Callable[[List[str]], Any] = lambda i: i) -> Any:
+        __T = typing.TypeVar('__T')
+
+        def execute(
+            self,
+            sql: str,
+            post: typing.Callable[[typing.List[str]],
+                                  __T] = lambda i: i) -> __T:
             with self.__lock:
-                LOGGER.info('execute \'%s\'', sql)
+                _LOGGER.info(
+                    'execute \'%s\'',
+                    sql.replace(config.STX,
+                                '[STX]').replace(config.ETX, '[ETX]'))
                 return post(list(self.__connection.execute(sql)))
 
         def commit(self, sql: str) -> None:
             with self.__lock:
-                LOGGER.info('execute \'%s\'', sql)
+                _LOGGER.info(
+                    'execute \'%s\'',
+                    sql.replace(config.STX,
+                                '[STX]').replace(config.ETX, '[ETX]'))
                 self.__connection.execute(sql)
                 self.__connection.commit()
 
     class _Table:
 
-        def __init__(self, database: Database._Database, identifier: str,
-                     columns: List[Database.Column]) -> None:
-            self.__database = database
-            self.__identifier = identifier
-            self.__columns = [
-                column for column in columns if column.identifier != 'modified'
+        IGNORED = {'modified'}
+
+        def __init__(
+                self, database: Database._Database, identifier: str,
+                columns: typing.List[typing.Tuple[str,
+                                                  Database.Column]]) -> None:
+            self.__database: Database._Database = database
+            self.__identifier: str = identifier
+            self.__columns: typing.List[typing.Tuple[str, Database.Column]] = [
+                column for column in columns if identifier not in self.IGNORED
             ]
 
         @property
-        def identifier(self):
+        def identifier(self) -> str:
             return self.__identifier
 
         def __repr__(self) -> str:
-            csv = ', '.join([str(column) for column in self.__columns])
+            csv = ', '.join([column[0] for column in self.__columns])
             return f'Table(identifier: \'{self.__identifier}\', columns: [{csv}])'
 
         def create(self) -> Database._Table:
             csv = ', '.join([
-                f'{column.identifier} {column.typename}'
-                for column in self.__columns
+                f'{column[0]} {column[1].typename}' for column in self.__columns
             ])
             self.__database.commit(
                 f'CREATE TABLE IF NOT EXISTS {self.__identifier}({csv}, modified date);'
             )
             return self
 
-        def insert(self, values: Dict[str, Any]) -> None:
-            if (self.select(where=' AND '.join([
-                    f'{column.identifier}=\'{values[column.identifier]}\''
-                    for column in self.__columns
-                    if column.identifier in values.keys()
-            ]))):
-                LOGGER.warning('duplicate entry %s', values)
-                return
+        def insert(self, values: typing.Dict[str, typing.Any]) -> None:
+            # if (self.select(where=' AND '.join([
+            #         f'{column.identifier}=\'{values[column.identifier]}\''
+            #         for column in self.__columns
+            #         if column.identifier in values.keys()
+            # ]))):
+            #     _LOGGER.warning('duplicate entry %s', values)
+            #     return
 
             for column in values.keys() - {
-                    column.identifier for column in self.__columns
+                    column[0] for column in self.__columns
             }:
-                LOGGER.warning('missing column \'%s\'', column)
-            for column in {column.identifier for column in self.__columns
+                _LOGGER.warning('missing column \'%s\'', column)
+            for column in {column[0] for column in self.__columns
                           } - values.keys():
-                LOGGER.warning('missing value for column \'%s\'', column)
+                _LOGGER.warning('missing value for column \'%s\'', column)
 
             csv = ', '.join([
-                f'\'{values[column.identifier]}\''
-                if column.identifier in values.keys() else 'NULL'
+                f'\'{column[1].encode(values[column[0]])}\''
+                if column[0] in values.keys() else 'NULL'
                 for column in self.__columns
             ])
             self.__database.commit(
@@ -179,26 +196,26 @@ class Database:
             )
 
         def select(self,
-                   columns: List[str] = None,
-                   where: Optional[str] = None) -> List[_Row]:
+                   columns: typing.List[str] = None,
+                   where: typing.Optional[str] = None) -> typing.List[_Row]:
             if columns:
                 for column in set(columns) - {
-                        column.identifier for column in self.__columns
+                        column[0] for column in self.__columns
                 }:
-                    LOGGER.error('missing value for column \'%s\'', column)
+                    _LOGGER.error('missing value for column \'%s\'', column)
 
                 columns = [
-                    column for column in columns if column in
-                    [column.identifier for column in self.__columns]
+                    column for column in self.__columns if column in columns
                 ]
             else:
-                columns = [column.identifier for column in self.__columns]
+                columns = self.__columns
 
-            csv = ', '.join([f'{column}' for column in columns])
+            csv = ', '.join([f'{column[0]}' for column in columns])
             return [
-                self._Row(
-                    {column: value[idx]
-                     for idx, column in enumerate(columns)})
+                self._Row({
+                    column[0]: column[1].decode(value[index])
+                    for index, column in enumerate(columns)
+                })
                 for value in self.__database.execute(
                     f'SELECT {csv} FROM {self.identifier} WHERE {where};'
                     if where else f'SELECT {csv} FROM {self.identifier};')
@@ -210,13 +227,13 @@ class Database:
 
         class _Row:
 
-            def __init__(self, values: Dict['str', Any]) -> None:
+            def __init__(self, values: typing.Dict['str', typing.Any]) -> None:
                 self.__values = values
 
-            def __getitem__(self, identifier: str) -> Any:
+            def __getitem__(self, identifier: str) -> typing.Any:
                 return self.__values[identifier]
 
-            def __getattr__(self, identifier) -> Any:
+            def __getattr__(self, identifier) -> typing.Any:
                 if identifier in self.__values:
                     return self[identifier]
                 return None
@@ -224,54 +241,150 @@ class Database:
             def __repr__(self) -> str:
                 return str(self.__values)
 
-            def keys(self) -> Any:
+            def keys(self) -> typing.Any:
                 return self.__values.keys()
 
-    class Column:
 
-        def __init__(self,
-                     identifier: str,
-                     typename: str,
-                     not_null: bool = False) -> None:
-            self.__identifier = identifier
-            self.typename = typename
-            self.not_null = not_null
+class _DataType:
 
-        def __repr__(self) -> str:
-            return f'Entry(identifier: \'{self.identifier}\', typename: \'{self.typename}\')'
+    def __init__(self, typename: str, not_null: bool = False) -> None:
+        self.__typename = typename
+        self.__not_null = not_null
 
-        @property
-        def identifier(self):
-            return self.__identifier
+    def __repr__(self) -> str:
+        return f'Column(typename: \'{self.typename}\')'
 
-    class Bool(Column):
+    @property
+    def typename(self):
+        return self.__typename
 
-        def __init__(self, value: str) -> None:
-            super(Database.Bool, self).__init__(value, 'BOOL')
+    __T = typing.TypeVar('__T')
 
-    class Integer(Column):
+    @staticmethod
+    def encode(values: __T) -> __T:
+        return values
 
-        def __init__(self, value: str) -> None:
-            super(Database.Integer, self).__init__(value, 'INTEGER')
+    @staticmethod
+    def decode(values: __T) -> __T:
+        return values
 
-    class Date(Column):
 
-        def __init__(self, value: str) -> None:
-            super(Database.Date, self).__init__(value, 'DATE')
+class _Bool(_DataType):
 
-    class String(Column):
+    def __init__(self) -> None:
+        super().__init__('BOOL')
 
-        def __init__(self, value: str) -> None:
-            super(Database.String, self).__init__(value, 'TEXT')
 
+BOOL: _Bool = _Bool()
+
+
+class _Integer(_DataType):
+
+    def __init__(self) -> None:
+        super().__init__('INTEGER')
+
+
+INTEGER: _Integer = _Integer()
+
+
+class _Date(_DataType):
+
+    def __init__(self) -> None:
+        super().__init__('DATE')
+
+
+DATE: _Date = _Date()
+
+
+class _Text(_DataType):
+
+    def __init__(self) -> None:
+        super().__init__('TEXT')
+
+
+TEXT: _Text = _Text()
+
+
+class _Blob(_DataType):
+
+    def __init__(self):
+        super().__init__('BLOB')
+
+
+BLOB: _Blob = _Blob()
+
+
+class _Array(_Blob):
+
+    def __init__(self, items: Database.Column):
+        super().__init__()
+        self.items = items
+
+    def encode(self, values: typing.List[typing.Union[_DataType, str]]) -> str:
+        return ''.join([
+            config.STX + self.items.encode(value) + config.ETX
+            for value in values
+        ])
+
+    def decode(self, values: str) -> typing.List[str]:
+        inner = []
+        level = 0
+        for character in values:
+            if level > 0:
+                inner[-1] += character
+            else:
+                inner.append(character)
+
+            if character is config.STX:
+                level += 1
+            elif character is config.ETX:
+                level -= 1
+
+        return [self.items.decode(value[1:-1]) for value in inner]
+
+
+ARRAY: typing.Type[_Array] = _Array
+
+
+class _Tuple(_Array):
+
+    def __init__(self, *items: Database.Column):
+        super().__init__(self)
+        self.items = items
+
+    def encode(self, values: typing.List[typing.Union[_DataType, str]]) -> str:
+        if len(values) != len(self.items):
+            _LOGGER.critical('could not encode tuple')
+            raise TypeError()
+
+        return ''.join([
+            config.STX + self.items[index].encode(value) + config.ETX
+            for index, value in enumerate(values)
+        ])
+
+    def decode(self, values: str) -> typing.Optional[typing.List[str]]:
+        inner = _Array(_Blob()).decode(values)
+
+        if len(inner) != len(self.items):
+            _LOGGER.critical('could not decode tuple')
+            return None
+
+        return [
+            self.items[index].decode(value) for index, value in enumerate(inner)
+        ]
+
+
+TUPLE: typing.Type[_Tuple] = _Tuple
 
 if __name__ == '__main__':
-    # pylint: disable=import-self
-    from s9l.database import Database  # noqa
+    # pylint: disable=import-self, unused-import
+    import s9l.database  # noqa
 
     db = Database(config.DATABASE)
-    db['test'] = [db.Integer('id'), db.String('content')]
-    db['test'].insert({'id': 1, 'content': "42"})
-    db['test'].insert({'id': 1, 'content': "42"})
+    db['test'] = [('id', INTEGER), ('content', ARRAY(TUPLE(TEXT, ARRAY(TEXT))))]
+    db['test'].insert({
+        'id': 1,
+        'content': [['first', ['1']], ['second', ['2', '42']]]
+    })
 
     print(db['test'].select()[0].content)

@@ -37,3 +37,6 @@ DEBUG: bool = False
 
 MODULE: str = f'{pathlib.Path(__file__).parent.absolute()}'
 DATABASE: str = f'{MODULE}/../resources/sqlite.db'
+
+STX: str = '\x02'
+ETX: str = '\x03'

@@ -32,42 +32,40 @@
 # -*- coding: utf-8 -*-
 
 import logging
-from typing import Dict
+import typing
+
+ANSI_RESET: str = '\x1b[0m'
+
+ANSI_FG_BLACK: str = '\x1b[30m'
+ANSI_FG_RED: str = '\x1b[31m'
+ANSI_FG_GREEN: str = '\x1b[32m'
+ANSI_FG_YELLOW: str = '\x1b[33m'
+ANSI_FG_BLUE: str = '\x1b[34m'
+ANSI_FG_MAGENTA: str = '\x1b[35m'
+ANSI_FG_CYAN: str = '\x1b[36m'
+ANSI_FG_WHITE: str = '\x1b[37m'
+
+ANSI_FG_BOLD_BLACK: str = '\x1b[30;1m'
+ANSI_FG_BOLD_RED: str = '\x1b[31;1m'
+ANSI_FG_BOLD_GREEN: str = '\x1b[32;1m'
+ANSI_FG_BOLD_YELLOW: str = '\x1b[33;1m'
+ANSI_FG_BOLD_BLUE: str = '\x1b[34;1m'
+ANSI_FG_BOLD_MAGENTA: str = '\x1b[35;1m'
+ANSI_FG_BOLD_CYAN: str = '\x1b[36;1m'
+ANSI_FG_BOLD_WHITE: str = '\x1b[37;1m'
+
+ANSI_BG_BLACK: str = '\x1b[40m'
+ANSI_BG_RED: str = '\x1b[41m'
+ANSI_BG_GREEN: str = '\x1b[42m'
+ANSI_BG_YELLOW: str = '\x1b[43m'
+ANSI_BG_BLUE: str = '\x1b[44m'
+ANSI_BG_MAGENTA: str = '\x1b[45m'
+ANSI_BG_CYAN: str = '\x1b[46m'
+ANSI_BG_WHITE: str = '\x1b[47m'
 
 
-class AnsiColor:
-    ANSI_RESET: str = "\x1b[0m"
-
-    ANSI_FG_BLACK: str = "\x1b[30m"
-    ANSI_FG_RED: str = "\x1b[31m"
-    ANSI_FG_GREEN: str = "\x1b[32m"
-    ANSI_FG_YELLOW: str = "\x1b[33m"
-    ANSI_FG_BLUE: str = "\x1b[34m"
-    ANSI_FG_MAGENTA: str = "\x1b[35m"
-    ANSI_FG_CYAN: str = "\x1b[36m"
-    ANSI_FG_WHITE: str = "\x1b[37m"
-
-    ANSI_FG_BOLD_BLACK: str = "\x1b[30;1m"
-    ANSI_FG_BOLD_RED: str = "\x1b[31;1m"
-    ANSI_FG_BOLD_GREEN: str = "\x1b[32;1m"
-    ANSI_FG_BOLD_YELLOW: str = "\x1b[33;1m"
-    ANSI_FG_BOLD_BLUE: str = "\x1b[34;1m"
-    ANSI_FG_BOLD_MAGENTA: str = "\x1b[35;1m"
-    ANSI_FG_BOLD_CYAN: str = "\x1b[36;1m"
-    ANSI_FG_BOLD_WHITE: str = "\x1b[37;1m"
-
-    ANSI_BG_BLACK: str = "\x1b[40m"
-    ANSI_BG_RED: str = "\x1b[41m"
-    ANSI_BG_GREEN: str = "\x1b[42m"
-    ANSI_BG_YELLOW: str = "\x1b[43m"
-    ANSI_BG_BLUE: str = "\x1b[44m"
-    ANSI_BG_MAGENTA: str = "\x1b[45m"
-    ANSI_BG_CYAN: str = "\x1b[46m"
-    ANSI_BG_WHITE: str = "\x1b[47m"
-
-    @staticmethod
-    def color(string: str, prefix: str):
-        return prefix + string + AnsiColor.ANSI_RESET
+def color(string: str, prefix: str) -> str:
+    return prefix + string + ANSI_RESET
 
 
 class AnsiFormatter(logging.Formatter):
@@ -75,19 +73,19 @@ class AnsiFormatter(logging.Formatter):
     __FORMAT: str = '[%(levelname)s]%(asctime)s %(name)s: %(message)s'
     __DATEFORMAT: str = '[%Y-%m-%d][%H:%M:%S]'
 
-    __COLORS: Dict[int, str] = {
-        logging.DEBUG: AnsiColor.ANSI_FG_CYAN,
-        logging.INFO: AnsiColor.ANSI_FG_GREEN,
-        logging.WARNING: AnsiColor.ANSI_FG_YELLOW,
-        logging.ERROR: AnsiColor.ANSI_FG_RED,
-        logging.CRITICAL: AnsiColor.ANSI_FG_RED + AnsiColor.ANSI_BG_WHITE,
+    __COLORS: typing.Dict[int, str] = {
+        logging.DEBUG: ANSI_FG_CYAN,
+        logging.INFO: ANSI_FG_GREEN,
+        logging.WARNING: ANSI_FG_YELLOW,
+        logging.ERROR: ANSI_FG_RED,
+        logging.CRITICAL: ANSI_FG_RED + ANSI_BG_WHITE,
     }
 
-    def format(self, record) -> str:
-        return logging.Formatter(fmt=AnsiColor.color(
-            self.__FORMAT, self.__COLORS.get(record.levelno)),
+    def format(self, record: logging.LogRecord) -> str:
+        return logging.Formatter(fmt=color(self.__FORMAT,
+                                           self.__COLORS.get(record.levelno)),
                                  datefmt=self.__DATEFORMAT).format(record)
 
 
-ANSI_LOGGER = logging.StreamHandler()
+ANSI_LOGGER: logging.StreamHandler = logging.StreamHandler()
 ANSI_LOGGER.setFormatter(AnsiFormatter())
