@@ -55,8 +55,8 @@ class Database:
         else:
             _LOGGER.info('reuse instance \'%s\'', uri)
 
-    def __getattr__(self, identifier: str) -> typing.Any:
-        return getattr(self.__instance, identifier)
+    def __getattr__(self, name: str) -> typing.Any:
+        return getattr(self.__instance, name)
 
     def __getitem__(self, identifier: str) -> typing.Optional[_Table]:
         return Database.__instance.__getitem__(identifier)
@@ -233,9 +233,9 @@ class Database:
             def __getitem__(self, identifier: str) -> typing.Any:
                 return self.__values[identifier]
 
-            def __getattr__(self, identifier) -> typing.Any:
-                if identifier in self.__values:
-                    return self[identifier]
+            def __getattr__(self, name) -> typing.Any:
+                if name in self.__values:
+                    return self[name]
                 return None
 
             def __repr__(self) -> str:
@@ -269,60 +269,22 @@ class _DataType:
         return values
 
 
-class _Bool(_DataType):
-
-    def __init__(self) -> None:
-        super().__init__('BOOL')
-
-
-BOOL: _Bool = _Bool()
+BOOL: _DataType = _DataType('BOOL')
+INTEGER: _DataType = _DataType('INTEGER')
+DATE: _DataType = _DataType('DATE')
+TEXT: _DataType = _DataType('TEXT')
+BLOB: _DataType = _DataType('BLOB')
 
 
-class _Integer(_DataType):
+class _Array(_DataType):
 
-    def __init__(self) -> None:
-        super().__init__('INTEGER')
-
-
-INTEGER: _Integer = _Integer()
-
-
-class _Date(_DataType):
-
-    def __init__(self) -> None:
-        super().__init__('DATE')
-
-
-DATE: _Date = _Date()
-
-
-class _Text(_DataType):
-
-    def __init__(self) -> None:
-        super().__init__('TEXT')
-
-
-TEXT: _Text = _Text()
-
-
-class _Blob(_DataType):
-
-    def __init__(self):
+    def __init__(self, item: _DataType) -> None:
         super().__init__('BLOB')
+        self.__item: _DataType = item
 
-
-BLOB: _Blob = _Blob()
-
-
-class _Array(_Blob):
-
-    def __init__(self, items: Database.Column):
-        super().__init__()
-        self.items = items
-
-    def encode(self, values: typing.List[typing.Union[_DataType, str]]) -> str:
+    def encode(self, values: typing.List[_DataType | str]) -> str:
         return ''.join([
-            config.STX + self.items.encode(value) + config.ETX
+            config.STX + self.__item.encode(value) + config.ETX
             for value in values
         ])
 
@@ -340,7 +302,7 @@ class _Array(_Blob):
             elif character is config.ETX:
                 level -= 1
 
-        return [self.items.decode(value[1:-1]) for value in inner]
+        return [self.__item.decode(value[1:-1]) for value in inner]
 
 
 ARRAY: typing.Type[_Array] = _Array
@@ -348,43 +310,89 @@ ARRAY: typing.Type[_Array] = _Array
 
 class _Tuple(_Array):
 
-    def __init__(self, *items: Database.Column):
-        super().__init__(self)
-        self.items = items
+    def __init__(self, *items: _DataType) -> None:
+        super().__init__(BLOB)
+        self.__items: typing.Tuple[_DataType, ...] = items
 
-    def encode(self, values: typing.List[typing.Union[_DataType, str]]) -> str:
-        if len(values) != len(self.items):
+    def encode(self, values: typing.List[_DataType | str]) -> str:
+        if len(values) != len(self.__items):
             _LOGGER.critical('could not encode tuple')
             raise TypeError()
 
         return ''.join([
-            config.STX + self.items[index].encode(value) + config.ETX
+            config.STX + self.__items[index].encode(value) + config.ETX
             for index, value in enumerate(values)
         ])
 
     def decode(self, values: str) -> typing.Optional[typing.List[str]]:
-        inner = _Array(_Blob()).decode(values)
+        inner = super().decode(values)
 
-        if len(inner) != len(self.items):
+        if len(inner) != len(self.__items):
             _LOGGER.critical('could not decode tuple')
             return None
 
         return [
-            self.items[index].decode(value) for index, value in enumerate(inner)
+            self.__items[index].decode(value)
+            for index, value in enumerate(inner)
         ]
 
 
 TUPLE: typing.Type[_Tuple] = _Tuple
+
+
+class _Decorator:
+
+    def __init__(self, decorated: _DataType | _Decorator) -> None:
+        self.__decorated: _DataType = decorated
+
+    @property
+    def typename(self) -> str:
+        return self.__decorated.typename
+
+    def __getattr__(self, name: str) -> typing.Any:
+        return getattr(self.__decorated, name)
+
+
+class _Unique(_Decorator):
+
+    @property
+    def typename(self) -> str:
+        return f'{super().typename} UNIQUE'
+
+
+UNIQUE: typing.Type[_Unique] = _Unique
+
+
+class _NotNull(_Decorator):
+
+    @property
+    def typename(self) -> str:
+        return f'{super().typename} NOT NULL'
+
+
+NOT_NULL: typing.Type[_NotNull] = _NotNull
+
+
+class _Primary(_NotNull):
+
+    @property
+    def typename(self) -> str:
+        return f'{super().typename} PRIMARY KEY'
+
+
+PRIMARY: typing.Type[_Primary] = _Primary
 
 if __name__ == '__main__':
     # pylint: disable=import-self, unused-import
     import s9l.database  # noqa
 
     db = Database(config.DATABASE)
-    db['test'] = [('id', INTEGER), ('content', ARRAY(TUPLE(TEXT, ARRAY(TEXT))))]
+    db['test'] = [('id', PRIMARY(INTEGER)),
+                  ('content', UNIQUE(NOT_NULL(ARRAY(TUPLE(TEXT,
+                                                          ARRAY(TEXT))))))]
     db['test'].insert({
         'id': 1,
         'content': [['first', ['1']], ['second', ['2', '42']]]
     })
 
-    print(db['test'].select()[0].content)
+    print(db['test'].select())
