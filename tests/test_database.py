@@ -38,7 +38,7 @@ from s9l.database import *
 
 
 def test_database() -> None:
-    database = Database(TEST_DATABASE_PATH)
+    database = Database(DATABASE_PATH, mode='memory')
     database['test'] = [
         ('id', PRIMARY_KEY(INTEGER)),
         ('content', UNIQUE(NOT_NULL(ARRAY(TUPLE(TEXT, ARRAY(TEXT)))))),

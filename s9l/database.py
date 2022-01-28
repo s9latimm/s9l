@@ -60,12 +60,15 @@ _LOGGER: logging.Logger = logging.getLogger('s9l.database')
 class Database:
     __instance: typing.Optional[_Database] = None
 
-    def __init__(self, uri: str) -> None:
+    def __init__(
+            self,
+            uri: str,
+            mode: typing.Literal['ro', 'rw', 'rwc', 'memory'] = 'rwc') -> None:
         if not Database.__instance:
-            Database.__instance = self._Database(uri)
+            Database.__instance = self._Database(uri, mode)
         elif uri != Database.__instance.uri:
             Database.__instance.__del__()
-            Database.__instance = self._Database(uri)
+            Database.__instance = self._Database(uri, mode)
         else:
             _LOGGER.info('reuse instance \'%s\'', uri)
 
@@ -82,11 +85,11 @@ class Database:
 
     class _Database:
 
-        def __init__(self, uri: str) -> None:
-            _LOGGER.debug('connect \'%s\'', uri)
+        def __init__(self, uri: str, mode: str) -> None:
+            _LOGGER.debug('connect \'%s?mode=%s\'', uri, mode)
             self.__uri: str = uri
             self.__connection: sqlite3.Connection = sqlite3.connect(
-                f'file://{self.__uri}?mode=rw', uri=True)
+                f'file://{self.__uri}?mode={mode}', uri=True)
             self.__lock: threading.Lock = threading.Lock()
             self.__tables: typing.Dict[str, Database._Table] = {
                 identifier: Database._Table(self, identifier, columns)
@@ -261,9 +264,8 @@ class Database:
 
 class _DataType:
 
-    def __init__(self, typename: str, not_null: bool = False) -> None:
+    def __init__(self, typename: str) -> None:
         self.__typename = typename
-        self.__not_null = not_null
 
     def __repr__(self) -> str:
         return f'Column(typename: \'{self.typename}\')'

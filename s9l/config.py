@@ -37,7 +37,6 @@ __all__ = [
     'ETX',
     'ROOT_PATH',
     'STX',
-    'TEST_DATABASE_PATH',
 ]
 
 import pathlib
@@ -46,7 +45,6 @@ DEBUG: bool = False
 
 ROOT_PATH: str = f'{pathlib.Path(__file__).parent.parent.absolute()}'
 DATABASE_PATH: str = f'{ROOT_PATH}/resources/sqlite.db'
-TEST_DATABASE_PATH: str = f'{ROOT_PATH}/resources/sqlite.db'
 
 STX: str = '\x02'
 ETX: str = '\x03'
