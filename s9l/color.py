@@ -31,6 +31,35 @@
 
 # -*- coding: utf-8 -*-
 
+__all__ = [
+    'ANSI_BG_BLACK',
+    'ANSI_BG_BLUE',
+    'ANSI_BG_CYAN',
+    'ANSI_BG_GREEN',
+    'ANSI_BG_MAGENTA',
+    'ANSI_BG_RED',
+    'ANSI_BG_WHITE',
+    'ANSI_BG_YELLOW',
+    'ANSI_FG_BLACK',
+    'ANSI_FG_BLUE',
+    'ANSI_FG_BOLD_BLACK',
+    'ANSI_FG_BOLD_BLUE',
+    'ANSI_FG_BOLD_CYAN',
+    'ANSI_FG_BOLD_GREEN',
+    'ANSI_FG_BOLD_MAGENTA',
+    'ANSI_FG_BOLD_RED',
+    'ANSI_FG_BOLD_WHITE',
+    'ANSI_FG_BOLD_YELLOW',
+    'ANSI_FG_CYAN',
+    'ANSI_FG_GREEN',
+    'ANSI_FG_MAGENTA',
+    'ANSI_FG_RED',
+    'ANSI_FG_WHITE',
+    'ANSI_FG_YELLOW',
+    'ANSI_LOGGER',
+    'ANSI_RESET',
+]
+
 import logging
 import typing
 
@@ -64,11 +93,7 @@ ANSI_BG_CYAN: str = '\x1b[46m'
 ANSI_BG_WHITE: str = '\x1b[47m'
 
 
-def color(string: str, prefix: str) -> str:
-    return prefix + string + ANSI_RESET
-
-
-class AnsiFormatter(logging.Formatter):
+class _AnsiFormatter(logging.Formatter):
 
     __FORMAT: str = '[%(levelname)s]%(asctime)s %(name)s: %(message)s'
     __DATEFORMAT: str = '[%Y-%m-%d][%H:%M:%S]'
@@ -82,10 +107,10 @@ class AnsiFormatter(logging.Formatter):
     }
 
     def format(self, record: logging.LogRecord) -> str:
-        return logging.Formatter(fmt=color(self.__FORMAT,
-                                           self.__COLORS.get(record.levelno)),
+        return logging.Formatter(fmt=self.__COLORS.get(record.levelno) +
+                                 self.__FORMAT + ANSI_RESET,
                                  datefmt=self.__DATEFORMAT).format(record)
 
 
 ANSI_LOGGER: logging.StreamHandler = logging.StreamHandler()
-ANSI_LOGGER.setFormatter(AnsiFormatter())
+ANSI_LOGGER.setFormatter(_AnsiFormatter())

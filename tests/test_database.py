@@ -31,22 +31,26 @@
 
 # -*- coding: utf-8 -*-
 
-__all__ = [
-    'DATABASE_PATH',
-    'DEBUG',
-    'ETX',
-    'ROOT_PATH',
-    'STX',
-    'TEST_DATABASE_PATH',
-]
+# pylint: disable=wildcard-import,unused-wildcard-import
 
-import pathlib
+from s9l.config import *
+from s9l.database import *
 
-DEBUG: bool = False
 
-ROOT_PATH: str = f'{pathlib.Path(__file__).parent.parent.absolute()}'
-DATABASE_PATH: str = f'{ROOT_PATH}/resources/sqlite.db'
-TEST_DATABASE_PATH: str = f'{ROOT_PATH}/resources/sqlite.db'
+def test_database() -> None:
+    database = Database(TEST_DATABASE_PATH)
+    database['test'] = [
+        ('id', PRIMARY_KEY(INTEGER)),
+        ('content', UNIQUE(NOT_NULL(ARRAY(TUPLE(TEXT, ARRAY(TEXT)))))),
+    ]
+    expected = {
+        'id': 1,
+        'content': [['first', ['1']], ['second', ['2', '42']]],
+    }
+    database['test'].insert(expected)
 
-STX: str = '\x02'
-ETX: str = '\x03'
+    actual = database['test'].select()
+    assert actual
+
+    assert expected['content'] == actual[0].content
+    assert expected['id'] == actual[0].id

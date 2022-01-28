@@ -33,6 +33,20 @@
 
 from __future__ import annotations
 
+__all__ = [
+    'ARRAY',
+    'BLOB',
+    'BOOL',
+    'DATE',
+    'INTEGER',
+    'NOT_NULL',
+    'PRIMARY_KEY',
+    'TEXT',
+    'TUPLE',
+    'UNIQUE',
+    'Database',
+]
+
 import logging
 import sqlite3
 import threading
@@ -46,7 +60,7 @@ _LOGGER: logging.Logger = logging.getLogger('s9l.database')
 class Database:
     __instance: typing.Optional[_Database] = None
 
-    def __init__(self, uri: str = config.DATABASE) -> None:
+    def __init__(self, uri: str) -> None:
         if not Database.__instance:
             Database.__instance = self._Database(uri)
         elif uri != Database.__instance.uri:
@@ -373,26 +387,11 @@ class _NotNull(_Decorator):
 NOT_NULL: typing.Type[_NotNull] = _NotNull
 
 
-class _Primary(_NotNull):
+class _PrimaryKey(_NotNull):
 
     @property
     def typename(self) -> str:
         return f'{super().typename} PRIMARY KEY'
 
 
-PRIMARY: typing.Type[_Primary] = _Primary
-
-if __name__ == '__main__':
-    # pylint: disable=import-self, unused-import
-    import s9l.database  # noqa
-
-    db = Database(config.DATABASE)
-    db['test'] = [('id', PRIMARY(INTEGER)),
-                  ('content', UNIQUE(NOT_NULL(ARRAY(TUPLE(TEXT,
-                                                          ARRAY(TEXT))))))]
-    db['test'].insert({
-        'id': 1,
-        'content': [['first', ['1']], ['second', ['2', '42']]]
-    })
-
-    print(db['test'].select())
+PRIMARY_KEY: typing.Type[_PrimaryKey] = _PrimaryKey

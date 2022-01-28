@@ -27,7 +27,7 @@ jobs:
         shell: bash
         run: |
           pip3 install wheel
-          pip3 install pylint yapf
+          pip3 install pylint pytest yapf
           pip3 install -r requirements.txt
 
       - name: Install Module
@@ -38,9 +38,14 @@ jobs:
       - name: Run YAPF
         shell: bash
         run: |
-          yapf --style=google --diff --recursive s9l
+          yapf --style=google --diff --recursive s9l tests
 
       - name: Run Pylint
         shell: bash
         run: |
-          pylint s9l
+          pylint s9l tests
+
+      - name: Run Pytest
+        shell: bash
+        run: |
+          pytest
