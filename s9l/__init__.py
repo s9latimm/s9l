@@ -28,12 +28,3 @@
 #  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #  SOFTWARE.
 # ------------------------------------------------------------------------------
-
-# -*- coding: utf-8 -*-
-
-import logging
-
-from s9l import color, config
-
-logging.basicConfig(level=logging.DEBUG if config.DEBUG else logging.ERROR,
-                    handlers=[color.ANSI_LOGGER])

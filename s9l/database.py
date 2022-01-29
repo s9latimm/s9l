@@ -99,7 +99,7 @@ class Database:
                                                      for j in i]))
                     for k in self.execute(
                         'SELECT name FROM sqlite_master WHERE type = \'table\';',
-                        post=lambda i: i[0] if i else [])
+                        post=lambda i: [j[0] for j in i if j])
                 ]
             }
 
@@ -182,11 +182,13 @@ class Database:
                 f'{column[0]} {column[1].typename}' for column in self.__columns
             ])
             self.__database.commit(
-                f'CREATE TABLE IF NOT EXISTS {self.__identifier}({csv}, modified date);'
+                f'CREATE TABLE IF NOT EXISTS {self.__identifier}({csv}, modified DATETIME);'
             )
             return self
 
-        def insert(self, values: typing.Dict[str, typing.Any]) -> None:
+        def insert(self,
+                   values: typing.Dict[str, typing.Any],
+                   replace: bool = True) -> None:
             # if (self.select(where=' AND '.join([
             #         f'{column.identifier}=\'{values[column.identifier]}\''
             #         for column in self.__columns
@@ -209,8 +211,8 @@ class Database:
                 for column in self.__columns
             ])
             self.__database.commit(
-                f'INSERT INTO {self.__identifier} VALUES({csv}, CURRENT_TIMESTAMP);'
-            )
+                ('REPLACE' if replace else 'INSERT') +
+                f' INTO {self.__identifier} VALUES({csv}, CURRENT_TIMESTAMP);')
 
         def select(self,
                    columns: typing.List[str] = None,
