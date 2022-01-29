@@ -118,11 +118,12 @@ class Database:
                 self, identifier: str,
                 columns: typing.List[typing.Tuple[str,
                                                   Database.Column]]) -> None:
-            if identifier in self.__tables.keys():
-                _LOGGER.warning('replace table \'%s\'', identifier)
-                self.drop(self.__tables[identifier])
-            self.__tables[identifier] = Database._Table(self, identifier,
-                                                        columns).create()
+            table = Database._Table(self, identifier, columns)
+
+            if identifier not in self.__tables.keys():
+                table.create()
+
+            self.__tables[identifier] = table
 
         @property
         def uri(self):
@@ -177,14 +178,13 @@ class Database:
             csv = ', '.join([column[0] for column in self.__columns])
             return f'Table(identifier: \'{self.__identifier}\', columns: [{csv}])'
 
-        def create(self) -> Database._Table:
+        def create(self) -> None:
             csv = ', '.join([
                 f'{column[0]} {column[1].typename}' for column in self.__columns
             ])
             self.__database.commit(
                 f'CREATE TABLE IF NOT EXISTS {self.__identifier}({csv}, modified DATETIME);'
             )
-            return self
 
         def insert(self,
                    values: typing.Dict[str, typing.Any],
